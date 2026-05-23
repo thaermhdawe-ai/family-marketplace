@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>”Êﬁ «·⁄«∆·… - „‰’…  »«œ· «·”·⁄</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Tajawal', sans-serif; }
+        body { background: #f0f5fa; color: #2c3e50; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .btn { border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; cursor: pointer; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, #f39c12, #e67e22); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(243,156,18,0.4); }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-outline { background: transparent; border: 2px solid #f39c12; color: #f39c12; }
+        .btn-secondary { background: #3498db; color: white; }
+        .listings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-top: 30px; }
+        .listing-card { background: white; border-radius: 25px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); transition: transform 0.3s; }
+        .listing-card:hover { transform: translateY(-5px); }
+        .listing-images { display: flex; overflow-x: auto; gap: 8px; padding: 10px; background: #f8f9fa; min-height: 140px; }
+        .listing-img { height: 120px; width: auto; max-width: 100%; object-fit: cover; border-radius: 12px; cursor: pointer; border: 2px solid #fff; transition: transform 0.2s; }
+        .listing-img:hover { transform: scale(1.05); }
+        .no-image-placeholder { display: flex; align-items: center; justify-content: center; height: 120px; background: #ecf0f1; color: #7f8c8d; border-radius: 12px; font-size: 0.9rem; }
+        .listing-info { padding: 15px; }
+        .listing-title { font-size: 1.2rem; font-weight: bold; color: #1e3c4f; }
+        .price-tag { display: inline-block; background: #f39c12; color: white; padding: 4px 12px; border-radius: 50px; font-size: 0.8rem; margin: 8px 0; }
+        .price-free { background: #27ae60; }
+        .badge-condition { background: #ecf0f1; padding: 4px 8px; border-radius: 20px; font-size: 0.75rem; }
+        .admin-details { background: #fef9e6; padding: 10px; border-radius: 15px; margin-top: 10px; font-size: 0.8rem; border-right: 3px solid #f39c12; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 12px; border: 2px solid #e0e7ed; border-radius: 15px; font-size: 1rem; }
+        .images-preview { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
+        .preview-item { position: relative; width: 100px; height: 100px; border-radius: 15px; overflow: hidden; border: 2px solid #f39c12; background: #f8f9fa; }
+        .preview-img { width: 100%; height: 100%; object-fit: cover; }
+        .remove-img-btn { position: absolute; top: 5px; right: 5px; background: #e74c3c; color: white; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .header { background: linear-gradient(135deg, #1e3c4f, #2b5c7c); color: white; padding: 20px; border-radius: 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 30px; }
+        .page-tabs { display: flex; gap: 15px; margin: 20px 0; border-bottom: 2px solid #e0e7ed; padding-bottom: 10px; }
+        .page-tab { background: none; border: none; padding: 10px 25px; font-size: 1.1rem; font-weight: bold; cursor: pointer; border-radius: 30px; transition: 0.2s; color: #2c3e50; }
+        .page-tab.active { background: #f39c12; color: white; }
+        .admin-tabs { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
+        .admin-tab { background: #ecf0f1; padding: 8px 20px; border-radius: 50px; cursor: pointer; transition: 0.2s; border: none; }
+        .admin-tab.active { background: #f39c12; color: white; }
+        .hidden { display: none; }
+        .message { padding: 12px; border-radius: 12px; margin: 15px 0; }
+        .message.error { background: #fee9e7; color: #c0392b; border: 1px solid #e74c3c; }
+        .message.success { background: #e9f7ef; color: #27ae60; border: 1px solid #27ae60; }
+        .login-box { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
+        footer { text-align: center; margin-top: 50px; padding: 20px; color: #7f8c8d; }
+        .register-link { margin-top: 25px; padding: 15px; background: #e9f7ef; border-radius: 20px; text-align: center; }
+        .register-link a { color: #27ae60; font-weight: bold; text-decoration: none; }
+        .register-link a:hover { text-decoration: underline; }
+        .image-counter { margin-top: 8px; font-size: 0.85rem; color: #2c3e50; }
+        @media (max-width: 768px) { .listings-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- ‘«‘…  ”ÃÌ· «·œŒÊ· -->
+    <div id="loginScreen" class="login-box">
+        <h2><i class="fas fa-handshake"></i> ”Êﬁ «·⁄«∆·…</h2>
+        <p>«·—Ã«¡ ≈œŒ«· »Ì«‰«  œŒÊ·ﬂ (‰›” »Ì«‰«  œÌÊ«‰ «·„Âœ«ÊÌ)</p>
+        <input type="text" id="nationalId" placeholder="«·—ﬁ„ «·Êÿ‰Ì">
+        <input type="password" id="password" placeholder="ﬂ·„… «·„—Ê—">
+        <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="login()">œŒÊ·</button>
+        <div id="loginMessage" class="message hidden"></div>
+        <div class="register-link">
+            <i class="fas fa-user-plus"></i> ·Ì” ·œÌﬂ Õ”«»ø 
+            <a href="https://diwan-al-mahdawi.web.app/#" target="_blank">”Ã· «·¬‰ ›Ì œÌÊ«‰ «·⁄«∆·…</a>
+        </div>
+    </div>
+
+    <!-- «·Ê«ÃÂ… «·—∆Ì”Ì… »⁄œ «·œŒÊ· -->
+    <div id="mainApp" class="hidden">
+        <div class="header">
+            <h1><i class="fas fa-handshake"></i> ”Êﬁ «·⁄«∆·…</h1>
+            <div>
+                <span id="userName"></span>
+                <span id="userRoleBadge" style="margin:0 10px;"></span>
+                <button class="btn btn-outline" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Œ—ÊÃ</button>
+            </div>
+        </div>
+
+        <div id="userTabs" class="page-tabs">
+            <button class="page-tab active" data-user-page="listings">?? «·≈⁄·«‰« </button>
+            <button class="page-tab" data-user-page="add">? ≈÷«›… ≈⁄·«‰</button>
+        </div>
+
+        <div id="listingsPage">
+            <h2><i class="fas fa-store"></i> «·≈⁄·«‰«  «·„ «Õ…</h2>
+            <div id="listingsContainer" class="listings-grid"></div>
+        </div>
+
+        <div id="addListingPage" class="hidden">
+            <h3><i class="fas fa-plus-circle"></i> √÷› ≈⁄·«‰ﬂ (”Ì „ „—«Ã⁄ Â „‰ ﬁ»· «·„”ƒÊ·)</h3>
+            <div id="addForm">
+                <div class="form-group"><label>«·«”„ «·ﬂ«„· *</label><input type="text" id="fullName"></div>
+                <div class="form-group"><label>—ﬁ„ «·Â« › *</label><input type="tel" id="phoneNumber"></div>
+                <div class="form-group"><label>⁄‰Ê«‰ «·”·⁄… *</label><input type="text" id="itemTitle"></div>
+                <div class="form-group">
+                    <label>’Ê— «·”·⁄… («Œ Ì«—Ì - Õ Ï 5 ’Ê—)</label>
+                    <input type="file" id="multiImages" accept="image/*" multiple>
+                    <div id="imagesPreviewContainer" class="images-preview"></div>
+                    <div id="imageCounter" class="image-counter">0 / 5 ’Ê—…</div>
+                </div>
+                <div class="form-group"><label>«·Ê’› «·ﬂ«„·</label><textarea id="fullDescription" rows="3"></textarea></div>
+                <div class="form-group"><label>«·Õ«·…</label><select id="condition"><option value="ÃœÌœ">ÃœÌœ</option><option value="„” ⁄„·">„” ⁄„·</option></select></div>
+                <div class="form-group"><label>«·ﬂ„Ì…</label><input type="number" id="quantity" value="1" min="1"></div>
+                <div class="form-group"><label>‰Ê⁄ «·ÿ·»</label><select id="requestType"><option value="»Ì⁄">»Ì⁄</option><option value="‘—«¡">‘—«¡</option></select></div>
+                <div class="form-group"><label>«·”⁄— (0 = „Ã«‰Ì)</label><input type="number" id="price" value="0" step="0.01"></div>
+                <div class="form-group"><label>«·„ﬂ«‰</label><input type="text" id="location"></div>
+                <button class="btn btn-primary" onclick="submitListing()"><i class="fas fa-paper-plane"></i> ≈—”«· ··„—«Ã⁄…</button>
+                <div id="submitMessage" class="message hidden"></div>
+            </div>
+        </div>
+
+        <div id="adminDashboard" class="hidden">
+            <h2><i class="fas fa-tachometer-alt"></i> ·ÊÕ… «· Õﬂ„</h2>
+            <div class="admin-tabs" id="adminTabsContainer"></div>
+            <div id="adminListingsContainer" class="listings-grid"></div>
+        </div>
+    </div>
+    <footer>Ã„Ì⁄ «·ÕﬁÊﬁ „Õ›ÊŸ… - œÌÊ«‰ «·⁄«∆·…</footer>
+</div>
+
+<script>
+    // ------------------- ≈⁄œ«œ Firebase »«·„› «Õ «·’ÕÌÕ -------------------
+    const firebaseConfig = {
+        apiKey: "AIzaSyABILhvN6rEj0EjDGwltbWmc4HfC8RchZE",
+        authDomain: "diwan-al-mahdawi.firebaseapp.com",
+        projectId: "diwan-al-mahdawi",
+        storageBucket: "diwan-al-mahdawi.firebasestorage.app",
+        messagingSenderId: "663936231360",
+        appId: "1:663936231360:web:c743fa82c3d62a64c40a25"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // «·Õ”«» «· ﬁ‰Ì („ÊÃÊœ ›Ì Authentication)
+    const TECH_EMAIL = "souq@family.com";
+    const TECH_PASSWORD = "Souq@2025";
+    const CLOUD_NAME = "djcxu8duh";
+    const UPLOAD_PRESET = "diwan_chat_preset";
+    const MAX_IMAGES = 5;
+
+    let currentUser = null;
+    let allListings = [];
+    let currentImageFiles = [];
+    let isAuthReady = false;
+
+    // ⁄‰«’— DOM
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    const listingsPage = document.getElementById('listingsPage');
+    const addListingPage = document.getElementById('addListingPage');
+    const adminDashboardDiv = document.getElementById('adminDashboard');
+    const publicContainer = document.getElementById('listingsContainer');
+    const adminListingsContainer = document.getElementById('adminListingsContainer');
+    const userNameSpan = document.getElementById('userName');
+    const userRoleBadge = document.getElementById('userRoleBadge');
+    const multiImagesInput = document.getElementById('multiImages');
+    const imagesPreviewContainer = document.getElementById('imagesPreviewContainer');
+    const imageCounterSpan = document.getElementById('imageCounter');
+
+    // ------------------- „’«œﬁ…  ﬁ‰Ì… -------------------
+    async function initTechAuth() {
+        try {
+            await auth.signInWithEmailAndPassword(TECH_EMAIL, TECH_PASSWORD);
+            console.log("?  „  ”ÃÌ· «·œŒÊ· «· ﬁ‰Ì");
+            isAuthReady = true;
+        } catch (error) {
+            console.error("? ›‘· «·„’«œﬁ… «· ﬁ‰Ì…:", error);
+            alert(`Œÿ√ ›Ì «·„’«œﬁ…: ${error.message}\n\n √ﬂœ „‰:\n1.  ›⁄Ì· Email/Password ›Ì Authentication\n2. ÊÃÊœ «·„” Œœ„ ${TECH_EMAIL}\n3. ’Õ… „› «Õ API`);
+        }
+    }
+
+    // -------------------  ”ÃÌ· œŒÊ· «·„” Œœ„ «·⁄«œÌ -------------------
+    async function login() {
+        if (!isAuthReady) { alert("Ã«—Ì  ÃÂÌ“ «·« ’«·..."); return; }
+        const nationalId = document.getElementById('nationalId').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const msgDiv = document.getElementById('loginMessage');
+        if (!nationalId || !password) {
+            showMessage(msgDiv, '«·—Ã«¡ ≈œŒ«· «·—ﬁ„ «·Êÿ‰Ì Êﬂ·„… «·„—Ê—', 'error');
+            return;
+        }
+        try {
+            const snapshot = await db.collection('users').where('nationalId', '==', nationalId).where('password', '==', password).get();
+            if (snapshot.empty) { showMessage(msgDiv, '»Ì«‰«  «·œŒÊ· €Ì— ’ÕÌÕ…', 'error'); return; }
+            const userDoc = snapshot.docs[0];
+            currentUser = { id: userDoc.id, ...userDoc.data() };
+            document.getElementById('fullName').value = currentUser.name || '';
+            document.getElementById('phoneNumber').value = currentUser.phone || '';
+            loginScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+            userNameSpan.textContent = currentUser.name || currentUser.nationalId;
+            const roleText = currentUser.role === 'admin' ? '„”ƒÊ·' : (currentUser.role === 'supervisor' ? '„‘—›' : '„” Œœ„');
+            userRoleBadge.innerHTML = `<span class="badge-condition">${roleText}</span>`;
+            await loadListings();
+            setupUserInterface();
+            if (currentUser.role === 'admin' || currentUser.role === 'supervisor') {
+                setupAdminInterface();
+                showAdminDashboard();
+            } else { showListingsPage(); }
+        } catch (err) { showMessage(msgDiv, 'Œÿ√ ›Ì «·« ’«· »ﬁ«⁄œ… «·»Ì«‰« ', 'error'); }
+    }
+
+    function logout() {
+        currentUser = null;
+        loginScreen.classList.remove('hidden');
+        mainApp.classList.add('hidden');
+        document.getElementById('nationalId').value = '';
+        document.getElementById('password').value = '';
+    }
+
+    function setupUserInterface() {
+        document.querySelectorAll('[data-user-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const page = btn.getAttribute('data-user-page');
+                if (page === 'listings') {
+                    listingsPage.classList.remove('hidden');
+                    addListingPage.classList.add('hidden');
+                    renderUserListings();
+                } else {
+                    listingsPage.classList.add('hidden');
+                    addListingPage.classList.remove('hidden');
+                    resetImages();
+                }
+                document.querySelectorAll('[data-user-page]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+        initImageUpload();
+    }
+
+    function showListingsPage() {
+        listingsPage.classList.remove('hidden');
+        addListingPage.classList.add('hidden');
+        adminDashboardDiv.classList.add('hidden');
+        renderUserListings();
+        document.querySelector('[data-user-page="listings"]').classList.add('active');
+        document.querySelector('[data-user-page="add"]').classList.remove('active');
+    }
+
+    // ------------------- ≈œ«—… «·’Ê— -------------------
+    function initImageUpload() {
+        multiImagesInput.addEventListener('change', handleImageSelection);
+    }
+    function handleImageSelection(e) {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        if (currentImageFiles.length + files.length > MAX_IMAGES) {
+            alert(`·« Ì„ﬂ‰ﬂ ≈÷«›… √ﬂÀ— „‰ ${MAX_IMAGES} ’Ê—`);
+            multiImagesInput.value = '';
+            return;
+        }
+        for (let file of files) {
+            const exists = currentImageFiles.some(f => f.name === file.name && f.size === file.size);
+            if (!exists) currentImageFiles.push(file);
+        }
+        updateImagePreview();
+        multiImagesInput.value = '';
+    }
+    function updateImagePreview() {
+        imagesPreviewContainer.innerHTML = '';
+        currentImageFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `<img class="preview-img" src="${e.target.result}"><button class="remove-img-btn" onclick="window.removeImage(${index})">◊</button>`;
+                imagesPreviewContainer.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+        imageCounterSpan.textContent = `${currentImageFiles.length} / ${MAX_IMAGES} ’Ê—…`;
+    }
+    window.removeImage = function(index) {
+        currentImageFiles.splice(index, 1);
+        updateImagePreview();
+    };
+    function resetImages() {
+        currentImageFiles = [];
+        updateImagePreview();
+        multiImagesInput.value = '';
+    }
+
+    // ------------------- —›⁄ «·’Ê— ≈·Ï Cloudinary -------------------
+    async function uploadImageToCloudinary(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', UPLOAD_PRESET);
+        formData.append('folder', 'marketplace');
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message);
+        return data.secure_url;
+    }
+
+    // ------------------- Ê«ÃÂ… «·„”ƒÊ· -------------------
+    function setupAdminInterface() {
+        const container = document.getElementById('adminTabsContainer');
+        container.innerHTML = `<button class="admin-tab" data-status="pending">? ﬁÌœ «·„—«Ã⁄…</button>
+            <button class="admin-tab" data-status="approved">? «·„‰‘Ê—…</button>
+            <button class="admin-tab" data-status="reserved">?? „ÕÃÊ“…</button>
+            <button class="admin-tab" data-status="all">?? «·ﬂ·</button>`;
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', async () => {
+                const status = tab.getAttribute('data-status');
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                await loadAdminListings(status);
+            });
+        });
+    }
+    function showAdminDashboard() {
+        listingsPage.classList.add('hidden');
+        addListingPage.classList.add('hidden');
+        adminDashboardDiv.classList.remove('hidden');
+        loadAdminListings('pending');
+    }
+
+    // -------------------  Õ„Ì· Ê⁄—÷ «·≈⁄·«‰«  -------------------
+    async function loadListings() {
+        if (!isAuthReady) return;
+        const snapshot = await db.collection('marketplace_items').orderBy('createdAt', 'desc').get();
+        allListings = [];
+        snapshot.forEach(doc => allListings.push({ id: doc.id, ...doc.data() }));
+    }
+    function renderUserListings() {
+        const approved = allListings.filter(i => i.status === 'approved');
+        if (approved.length === 0) { publicContainer.innerHTML = '<div style="text-align:center; padding:40px;">·«  ÊÃœ ≈⁄·«‰« </div>'; return; }
+        let html = '';
+        approved.forEach(item => {
+            const priceText = item.price === 0 ? '„Ã«‰Ì' : `${item.price} œ.«`;
+            const priceClass = item.price === 0 ? 'price-free' : '';
+            let imagesHtml = '<div class="listing-images">';
+            if (item.images?.length) item.images.slice(0,5).forEach(img => imagesHtml += `<img class="listing-img" src="${img}" onclick="window.open('${img}')">`);
+            else imagesHtml += `<div class="no-image-placeholder"><i class="fas fa-image"></i> ·«  ÊÃœ ’Ê—</div>`;
+            imagesHtml += '</div>';
+            html += `<div class="listing-card">${imagesHtml}<div class="listing-info"><div class="listing-title">${escapeHtml(item.title)}</div>
+            <div><span class="price-tag ${priceClass}">${priceText}</span> <span class="badge-condition">${item.condition}</span></div>
+            <div><small>${item.requestType} | «·ﬂ„Ì…: ${item.quantity}</small></div>
+            ${item.price === 0 && item.status !== 'reserved' ? `<button class="btn btn-success" onclick="reserveItem('${item.id}')" style="width:100%;">«ÕÃ“ «·¬‰ („Ã«‰Ì)</button>` : '<button class="btn btn-outline" disabled>«· Ê«’· „⁄ «·„”ƒÊ·</button>'}
+            </div></div>`;
+        });
+        publicContainer.innerHTML = html;
+    }
+    async function loadAdminListings(filterStatus = 'pending') {
+        let query = db.collection('marketplace_items').orderBy('createdAt', 'desc');
+        if (filterStatus !== 'all') query = query.where('status', '==', filterStatus);
+        const snapshot = await query.get();
+        const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+        renderAdminListings(items);
+    }
+    function renderAdminListings(items) {
+        if (items.length === 0) { adminListingsContainer.innerHTML = '<div style="text-align:center;">·«  ÊÃœ ≈⁄·«‰« </div>'; return; }
+        let html = '';
+        items.forEach(item => {
+            const priceText = item.price === 0 ? '„Ã«‰Ì' : `${item.price} œ.«`;
+            const statusText = { pending: '? ﬁÌœ «·„—«Ã⁄…', approved: '? „‰‘Ê—', rejected: '? „—›Ê÷', reserved: '?? „ÕÃÊ“' }[item.status] || item.status;
+            let imagesHtml = '';
+            if (item.images?.length) {
+                imagesHtml = `<div class="listing-images" style="display:flex; gap:5px;">`;
+                item.images.slice(0,4).forEach(img => imagesHtml += `<img src="${img}" style="width:60px; height:60px; object-fit:cover; border-radius:8px;" onclick="window.open('${img}')">`);
+                imagesHtml += `</div>`;
+            } else imagesHtml = `<div class="listing-images"><div class="no-image-placeholder" style="height:60px;">·« ’Ê—</div></div>`;
+            html += `<div class="listing-card">${imagesHtml}<div class="listing-info"><div class="listing-title">${escapeHtml(item.title)}</div>
+            <div><span class="price-tag">${priceText}</span> <span class="badge-condition">${item.condition}</span></div>
+            <div><small>${escapeHtml(item.sellerName)} | ${item.sellerPhone}</small></div>
+            <div class="admin-details"><strong>?? «·„ﬂ«‰:</strong> ${escapeHtml(item.location)}<br><strong>?? «·Ê’›:</strong> ${escapeHtml(item.fullDescription || '·« ÌÊÃœ')}<br><strong>«·Õ«·…:</strong> ${statusText}${item.reservedBy ? `<br><strong>?? „ÕÃÊ“ »Ê«”ÿ…:</strong> ${escapeHtml(item.reservedBy.name)} (${item.reservedBy.phone})` : ''}</div>
+            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            ${item.status === 'pending' ? `<button class="btn btn-success" onclick="window.updateItemStatus('${item.id}', 'approved')">ﬁ»Ê· Ê‰‘—</button><button class="btn btn-danger" onclick="window.updateItemStatus('${item.id}', 'rejected')">—›÷</button>` : ''}
+            ${item.status === 'approved' && item.price === 0 ? `<button class="btn btn-warning" onclick="window.updateItemStatus('${item.id}', 'reserved')"> ⁄ÌÌ‰ „ÕÃÊ“</button>` : ''}
+            <button class="btn btn-danger" onclick="window.deleteItem('${item.id}')">Õ–› ‰Â«∆Ì</button>
+            </div></div></div>`;
+        });
+        adminListingsContainer.innerHTML = html;
+    }
+
+    // ------------------- ≈÷«›… ≈⁄·«‰ ÃœÌœ -------------------
+    async function submitListing() {
+        if (!currentUser) return;
+        const fullName = document.getElementById('fullName').value.trim();
+        const phone = document.getElementById('phoneNumber').value.trim();
+        const title = document.getElementById('itemTitle').value.trim();
+        const fullDesc = document.getElementById('fullDescription').value.trim();
+        const condition = document.getElementById('condition').value;
+        const quantity = parseInt(document.getElementById('quantity').value);
+        const requestType = document.getElementById('requestType').value;
+        let price = parseFloat(document.getElementById('price').value);
+        if (isNaN(price)) price = 0;
+        const location = document.getElementById('location').value.trim();
+        const files = currentImageFiles;
+        const msgDiv = document.getElementById('submitMessage');
+        if (!fullName || !phone || !title) { showMessage(msgDiv, '«·—Ã«¡ „·¡ «·ÕﬁÊ· «·„ÿ·Ê»…', 'error'); return; }
+        const loadingMsg = showLoadingMessage('Ã«—Ì —›⁄ «·’Ê—...');
+        try {
+            let uploadedUrls = [];
+            for (let file of files) { const url = await uploadImageToCloudinary(file); uploadedUrls.push(url); }
+            await db.collection('marketplace_items').add({
+                title, images: uploadedUrls, fullDescription: fullDesc, condition, quantity, requestType, price, location,
+                sellerName: fullName, sellerPhone: phone, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                reservedBy: null, sellerId: currentUser.nationalId
+            });
+            hideLoadingMessage(loadingMsg);
+            showMessage(msgDiv, ' „ ≈—”«· «·≈⁄·«‰ ··„—«Ã⁄…', 'success');
+            document.getElementById('itemTitle').value = ''; document.getElementById('fullDescription').value = '';
+            document.getElementById('location').value = ''; resetImages(); document.getElementById('price').value = '0';
+            await loadListings(); renderUserListings();
+        } catch (err) { hideLoadingMessage(loadingMsg); showMessage(msgDiv, '›‘·: ' + err.message, 'error'); }
+    }
+
+    // ------------------- ÕÃ“ «·”·⁄… «·„Ã«‰Ì… -------------------
+    async function reserveItem(itemId) {
+        const item = allListings.find(i => i.id === itemId);
+        if (!item || item.price !== 0 || item.status !== 'approved') { alert('€Ì— „ «Õ'); return; }
+        const name = prompt('√œŒ· «”„ﬂ «·ﬂ«„·:'); if (!name) return;
+        const phone = prompt('√œŒ· —ﬁ„ Â« ›ﬂ:'); if (!phone) return;
+        await db.collection('marketplace_items').doc(itemId).update({ status: 'reserved', reservedBy: { name, phone, reservedAt: new Date().toISOString(), reservedByUserId: currentUser.nationalId } });
+        alert(' „ «·ÕÃ“');
+        await loadListings(); renderUserListings();
+        if (currentUser.role === 'admin' || currentUser.role === 'supervisor') loadAdminListings('reserved');
+    }
+
+    window.updateItemStatus = async function(itemId, newStatus) {
+        await db.collection('marketplace_items').doc(itemId).update({ status: newStatus });
+        alert(` „  €ÌÌ— «·Õ«·… ≈·Ï ${newStatus}`);
+        const activeTab = document.querySelector('.admin-tab.active');
+        const filter = activeTab ? activeTab.getAttribute('data-status') : 'pending';
+        await loadAdminListings(filter);
+        await loadListings();
+        renderUserListings();
+    };
+    window.deleteItem = async function(itemId) {
+        if (!confirm('Õ–› ‰Â«∆Ìø')) return;
+        await db.collection('marketplace_items').doc(itemId).delete();
+        alert(' „ «·Õ–›');
+        const activeTab = document.querySelector('.admin-tab.active');
+        const filter = activeTab ? activeTab.getAttribute('data-status') : 'pending';
+        await loadAdminListings(filter);
+        await loadListings();
+        renderUserListings();
+    };
+
+    // ------------------- œÊ«· „”«⁄œ… -------------------
+    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m)); }
+    function showMessage(el, text, type) { el.textContent = text; el.className = `message ${type}`; el.classList.remove('hidden'); setTimeout(() => el.classList.add('hidden'), 5000); }
+    function showLoadingMessage(msg) { const div = document.createElement('div'); div.id = 'loadingOverlay'; div.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:10000;'; div.innerHTML = `<div style="background:white; padding:20px; border-radius:20px;"><i class="fas fa-spinner fa-spin"></i> ${msg}</div>`; document.body.appendChild(div); return div; }
+    function hideLoadingMessage(el) { if (el) el.remove(); }
+
+    initTechAuth();
+</script>
+</body>
+</html>
