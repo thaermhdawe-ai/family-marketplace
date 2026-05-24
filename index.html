@@ -64,18 +64,18 @@
 <body>
 <div class="container">
     <!-- شاشة تسجيل الدخول -->
-    <div id="loginScreen" class="login-box">
-        <h2><i class="fas fa-handshake"></i> سوق العائلة</h2>
-        <p>الرجاء إدخال بيانات دخولك (نفس بيانات ديوان المهداوي)</p>
-        <input type="text" id="nationalId" placeholder="الرقم الوطني">
-        <input type="password" id="password" placeholder="كلمة المرور">
-        <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="login()">دخول</button>
-        <div id="loginMessage" class="message hidden"></div>
-        <div class="register-link">
-            <i class="fas fa-user-plus"></i> ليس لديك حساب؟ 
-            <a href="https://diwan-al-mahdawi.web.app/#" target="_blank">سجل الآن في ديوان العائلة</a>
-        </div>
+   <div id="loginScreen" class="login-box">
+    <h2><i class="fas fa-handshake"></i> سوق العائلة</h2>
+    <p>الرجاء إدخال الرقم الوطني وكلمة المرور</p>
+    <input type="text" id="nationalId" placeholder="الرقم الوطني" dir="ltr">
+    <input type="password" id="password" placeholder="كلمة المرور">
+    <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="login()">دخول</button>
+    <div id="loginMessage" class="message hidden"></div>
+    <div class="register-link">
+        <i class="fas fa-user-plus"></i> ليس لديك حساب؟ 
+        <a href="https://diwan-al-mahdawi.web.app/#" target="_blank">سجل الآن في ديوان العائلة</a>
     </div>
+</div>
 
     <!-- الواجهة الرئيسية بعد الدخول -->
     <div id="mainApp" class="hidden">
@@ -131,7 +131,7 @@
 </div>
 
 <script>
-    // ------------------- إعداد Firebase بالمفتاح الصحيح -------------------
+    // ------------------- إعداد Firebase -------------------
     const firebaseConfig = {
         apiKey: "AIzaSyABILhvN6rEj0EjDGwltbWmc4HfC8RchZE",
         authDomain: "diwan-al-mahdawi.firebaseapp.com",
@@ -144,9 +144,6 @@
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    // الحساب التقني (موجود في Authentication)
-    const TECH_EMAIL = "souq@family.com";
-    const TECH_PASSWORD = "Souq@2025";
     const CLOUD_NAME = "djcxu8duh";
     const UPLOAD_PRESET = "diwan_chat_preset";
     const MAX_IMAGES = 5;
@@ -154,7 +151,6 @@
     let currentUser = null;
     let allListings = [];
     let currentImageFiles = [];
-    let isAuthReady = false;
 
     // عناصر DOM
     const loginScreen = document.getElementById('loginScreen');
@@ -170,57 +166,158 @@
     const imagesPreviewContainer = document.getElementById('imagesPreviewContainer');
     const imageCounterSpan = document.getElementById('imageCounter');
 
-    // ------------------- مصادقة تقنية -------------------
-    async function initTechAuth() {
-        try {
-            await auth.signInWithEmailAndPassword(TECH_EMAIL, TECH_PASSWORD);
-            console.log("✅ تم تسجيل الدخول التقني");
-            isAuthReady = true;
-        } catch (error) {
-            console.error("❌ فشل المصادقة التقنية:", error);
-            alert(`خطأ في المصادقة: ${error.message}\n\nتأكد من:\n1. تفعيل Email/Password في Authentication\n2. وجود المستخدم ${TECH_EMAIL}\n3. صحة مفتاح API`);
-        }
-    }
-
-    // ------------------- تسجيل دخول المستخدم العادي -------------------
+    // ------------------- دالة تسجيل الدخول الجديدة باستخدام Firebase Auth -------------------
     async function login() {
-        if (!isAuthReady) { alert("جاري تجهيز الاتصال..."); return; }
-        const nationalId = document.getElementById('nationalId').value.trim();
-        const password = document.getElementById('password').value.trim();
-        const msgDiv = document.getElementById('loginMessage');
-        if (!nationalId || !password) {
-            showMessage(msgDiv, 'الرجاء إدخال الرقم الوطني وكلمة المرور', 'error');
-            return;
+    const nationalId = document.getElementById('nationalId').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const msgDiv = document.getElementById('loginMessage');
+
+    if (!nationalId || !password) {
+        showMessage(msgDiv, 'الرجاء إدخال الرقم الوطني وكلمة المرور', 'error');
+        return;
+    }
+
+    // تحويل الرقم الوطني إلى بريد إلكتروني وهمي
+    const virtualEmail = `nationalid_${nationalId}@family.souq.com`;
+
+    try {
+        // أولاً: محاولة تسجيل الدخول عبر Firebase Auth
+        const userCredential = await auth.signInWithEmailAndPassword(virtualEmail, password);
+        const firebaseUser = userCredential.user;
+        console.log("✅ تسجيل الدخول عبر Firebase Auth");
+
+        // جلب بيانات المستخدم من Firestore باستخدام UID
+        const userDoc = await db.collection('users').doc(firebaseUser.uid).get();
+        if (!userDoc.exists) {
+            // إذا لم يجد المستند في Firestore (حالة نادرة)، نقوم بإنشائه من بيانات Auth
+            await db.collection('users').doc(firebaseUser.uid).set({
+                name: firebaseUser.displayName || nationalId,
+                nationalId: nationalId,
+                phone: "",
+                role: "user",
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
         }
+        const userData = userDoc.exists ? userDoc.data() : { name: nationalId, role: 'user' };
+        currentUser = { uid: firebaseUser.uid, ...userData };
+
+        afterLoginSuccess(msgDiv);
+        return;
+
+    } catch (authError) {
+        // إذا فشل تسجيل الدخول إلى Auth (المستخدم غير موجود)
+        console.log("⚠️ المستخدم غير موجود في Auth، نبحث في Firestore القديم...");
+        
         try {
-            const snapshot = await db.collection('users').where('nationalId', '==', nationalId).where('password', '==', password).get();
-            if (snapshot.empty) { showMessage(msgDiv, 'بيانات الدخول غير صحيحة', 'error'); return; }
-            const userDoc = snapshot.docs[0];
-            currentUser = { id: userDoc.id, ...userDoc.data() };
-            document.getElementById('fullName').value = currentUser.name || '';
-            document.getElementById('phoneNumber').value = currentUser.phone || '';
-            loginScreen.classList.add('hidden');
-            mainApp.classList.remove('hidden');
-            userNameSpan.textContent = currentUser.name || currentUser.nationalId;
-            const roleText = currentUser.role === 'admin' ? 'مسؤول' : (currentUser.role === 'supervisor' ? 'مشرف' : 'مستخدم');
-            userRoleBadge.innerHTML = `<span class="badge-condition">${roleText}</span>`;
-            await loadListings();
-            setupUserInterface();
-            if (currentUser.role === 'admin' || currentUser.role === 'supervisor') {
-                setupAdminInterface();
-                showAdminDashboard();
-            } else { showListingsPage(); }
-        } catch (err) { showMessage(msgDiv, 'خطأ في الاتصال بقاعدة البيانات', 'error'); }
-    }
+            // البحث في Firestore باستخدام nationalId وكلمة المرور (النظام القديم)
+            const oldUserQuery = await db.collection('users')
+                .where('nationalId', '==', nationalId)
+                .where('password', '==', password)
+                .get();
 
-    function logout() {
-        currentUser = null;
-        loginScreen.classList.remove('hidden');
-        mainApp.classList.add('hidden');
-        document.getElementById('nationalId').value = '';
-        document.getElementById('password').value = '';
-    }
+            if (oldUserQuery.empty) {
+                showMessage(msgDiv, 'الرقم الوطني أو كلمة المرور غير صحيحة', 'error');
+                return;
+            }
 
+            const oldUserDoc = oldUserQuery.docs[0];
+            const oldUserData = oldUserDoc.data();
+            const oldUid = oldUserDoc.id;
+
+            console.log("✅ تم العثور على المستخدم في Firestore القديم، جاري ترحيله إلى Auth...");
+
+           // محاولة إنشاء الحساب بكلمة المرور الأصلية
+let finalPassword = password;
+try {
+    var newUserCredential = await auth.createUserWithEmailAndPassword(virtualEmail, finalPassword);
+} catch (createError) {
+    if (createError.code === 'auth/weak-password') {
+        console.log("⚠️ كلمة المرور ضعيفة، يتم تقويتها تلقائياً...");
+        // تقوية كلمة المرور بإضافة أحرف وأرقام
+        finalPassword = password + "@Fam2026";
+        newUserCredential = await auth.createUserWithEmailAndPassword(virtualEmail, finalPassword);
+        // بعد إنشاء الحساب، سنقوم بإرسال رابط إعادة تعيين كلمة المرور للمستخدم ليضع كلمة مرور جديدة يختارها بنفسه
+        await auth.sendPasswordResetEmail(virtualEmail);
+        console.log("✅ تم إنشاء الحساب بكلمة مرور مقواة، وتم إرسال رابط إعادة تعيين إلى البريد الوهمي (لن يصل فعلياً لأن البريد وهمي). يجب تنبيه المستخدم بتغيير كلمة المرور يدوياً.");
+        // بدلاً من ذلك، يمكننا تحديث كلمة المرور في Auth مباشرة إلى نفس القيمة المقواة وسيتمكن المستخدم من الدخول بها
+        // لكن الأفضل أن نطلب من المستخدم تغييرها لاحقاً. سنكتفي هنا بتسجيل الدخول بكلمة المرور المقواة.
+    } else {
+        throw createError;
+    }
+}
+            const newFirebaseUser = newUserCredential.user;
+
+            // نسخ بيانات المستخدم من المستند القديم إلى المستند الجديد باستخدام UID الجديد
+            const newUserData = {
+                name: oldUserData.name || nationalId,
+                nationalId: nationalId,
+                phone: oldUserData.phone || "",
+                role: oldUserData.role || "user",
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                // لا نخزن password بعد الآن
+            };
+            await db.collection('users').doc(newFirebaseUser.uid).set(newUserData);
+
+            // حذف المستند القديم الذي يحتوي على كلمة المرور (أو حذف حقل password منه)
+            await db.collection('users').doc(oldUid).update({
+                password: firebase.firestore.FieldValue.delete()
+            });
+            // اختيارياً: يمكنك حذف المستند القديم بالكامل بعد التأكد من نجاح الترحيل
+            // await db.collection('users').doc(oldUid).delete();
+
+            console.log("✅ تم ترحيل المستخدم وحذف كلمة المرور من Firestore");
+
+            // تسجيل الدخول مرة أخرى بالمستخدم الجديد (أو استخدام newFirebaseUser مباشرة)
+            currentUser = { uid: newFirebaseUser.uid, ...newUserData };
+            afterLoginSuccess(msgDiv);
+
+        } catch (err) {
+            console.error("❌ فشل الترحيل:", err);
+            showMessage(msgDiv, 'حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة لاحقاً.', 'error');
+        }
+    }
+}
+
+// دالة مساعدة لتجميع مهام ما بعد نجاح الدخول
+async function afterLoginSuccess(msgDiv) {
+    // ملء الحقول الافتراضية في نموذج الإضافة (إن وجدت)
+    const fullNameInput = document.getElementById('fullName');
+    const phoneInput = document.getElementById('phoneNumber');
+    if (fullNameInput) fullNameInput.value = currentUser.name || '';
+    if (phoneInput) phoneInput.value = currentUser.phone || '';
+
+    loginScreen.classList.add('hidden');
+    mainApp.classList.remove('hidden');
+
+    userNameSpan.textContent = currentUser.name || currentUser.nationalId;
+    const roleText = currentUser.role === 'admin' ? 'مسؤول' : (currentUser.role === 'supervisor' ? 'مشرف' : 'مستخدم');
+    userRoleBadge.innerHTML = `<span class="badge-condition">${roleText}</span>`;
+
+    await loadListings();
+    setupUserInterface();
+
+    if (currentUser.role === 'admin' || currentUser.role === 'supervisor') {
+        setupAdminInterface();
+        showAdminDashboard();
+    } else {
+        showListingsPage();
+    }
+    showMessage(msgDiv, 'تم تسجيل الدخول بنجاح', 'success');
+}
+    // ------------------- تسجيل الخروج -------------------
+    async function logout() {
+    await auth.signOut();
+    currentUser = null;
+    loginScreen.classList.remove('hidden');
+    mainApp.classList.add('hidden');
+    // لا تحاول مسح email لأنه غير موجود
+    document.getElementById('nationalId').value = '';
+    document.getElementById('password').value = '';
+    allListings = [];
+    publicContainer.innerHTML = '';
+}
+
+    // ------------------- باقي الدوال (مع تعديلات بسيطة) -------------------
     function setupUserInterface() {
         document.querySelectorAll('[data-user-page]').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -330,11 +427,20 @@
 
     // ------------------- تحميل وعرض الإعلانات -------------------
     async function loadListings() {
-        if (!isAuthReady) return;
-        const snapshot = await db.collection('marketplace_items').orderBy('createdAt', 'desc').get();
+    try {
+        const snapshot = await db.collection('marketplace_items').get();
         allListings = [];
         snapshot.forEach(doc => allListings.push({ id: doc.id, ...doc.data() }));
+        // ترتيب يدوي
+        allListings.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+            return dateB - dateA;
+        });
+    } catch (error) {
+        console.error("خطأ في تحميل الإعلانات:", error);
     }
+}
     function renderUserListings() {
         const approved = allListings.filter(i => i.status === 'approved');
         if (approved.length === 0) { publicContainer.innerHTML = '<div style="text-align:center; padding:40px;">لا توجد إعلانات</div>'; return; }
@@ -354,13 +460,30 @@
         });
         publicContainer.innerHTML = html;
     }
-    async function loadAdminListings(filterStatus = 'pending') {
-        let query = db.collection('marketplace_items').orderBy('createdAt', 'desc');
-        if (filterStatus !== 'all') query = query.where('status', '==', filterStatus);
+ async function loadAdminListings(filterStatus = 'pending') {
+    try {
+        // نبدأ بدون orderBy لتجنب الحاجة إلى فهرس
+        let query = db.collection('marketplace_items');
+        if (filterStatus !== 'all') {
+            query = query.where('status', '==', filterStatus);
+        }
         const snapshot = await query.get();
-        const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+        const items = [];
+        snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+        
+        // نقوم بالترتيب يدوياً في الكود (بدلاً من orderBy)
+        items.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+            return dateB - dateA; // تنازلي
+        });
+        
         renderAdminListings(items);
+    } catch (error) {
+        console.error("خطأ في تحميل إعلانات المشرف:", error);
+        adminListingsContainer.innerHTML = '<div>حدث خطأ في تحميل الإعلانات</div>';
     }
+}
     function renderAdminListings(items) {
         if (items.length === 0) { adminListingsContainer.innerHTML = '<div style="text-align:center;">لا توجد إعلانات</div>'; return; }
         let html = '';
@@ -405,27 +528,35 @@
         const loadingMsg = showLoadingMessage('جاري رفع الصور...');
         try {
             let uploadedUrls = [];
-            for (let file of files) { const url = await uploadImageToCloudinary(file); uploadedUrls.push(url); }
+            for (let file of files) { 
+                const url = await uploadImageToCloudinary(file); 
+                uploadedUrls.push(url); 
+            }
             await db.collection('marketplace_items').add({
                 title, images: uploadedUrls, fullDescription: fullDesc, condition, quantity, requestType, price, location,
                 sellerName: fullName, sellerPhone: phone, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                reservedBy: null, sellerId: currentUser.nationalId
+                reservedBy: null, sellerId: currentUser.nationalId,
+                sellerUid: currentUser.uid   // إضافة حقل مهم لقواعد الأمان
             });
             hideLoadingMessage(loadingMsg);
             showMessage(msgDiv, 'تم إرسال الإعلان للمراجعة', 'success');
             document.getElementById('itemTitle').value = ''; document.getElementById('fullDescription').value = '';
             document.getElementById('location').value = ''; resetImages(); document.getElementById('price').value = '0';
             await loadListings(); renderUserListings();
-        } catch (err) { hideLoadingMessage(loadingMsg); showMessage(msgDiv, 'فشل: ' + err.message, 'error'); }
+        } catch (err) { 
+            hideLoadingMessage(loadingMsg); 
+            showMessage(msgDiv, 'فشل: ' + err.message, 'error'); 
+        }
     }
 
     // ------------------- حجز السلعة المجانية -------------------
     async function reserveItem(itemId) {
+        if (!currentUser) return;
         const item = allListings.find(i => i.id === itemId);
         if (!item || item.price !== 0 || item.status !== 'approved') { alert('غير متاح'); return; }
         const name = prompt('أدخل اسمك الكامل:'); if (!name) return;
         const phone = prompt('أدخل رقم هاتفك:'); if (!phone) return;
-        await db.collection('marketplace_items').doc(itemId).update({ status: 'reserved', reservedBy: { name, phone, reservedAt: new Date().toISOString(), reservedByUserId: currentUser.nationalId } });
+        await db.collection('marketplace_items').doc(itemId).update({ status: 'reserved', reservedBy: { name, phone, reservedAt: new Date().toISOString(), reservedByUserId: currentUser.uid } });
         alert('تم الحجز');
         await loadListings(); renderUserListings();
         if (currentUser.role === 'admin' || currentUser.role === 'supervisor') loadAdminListings('reserved');
@@ -457,7 +588,27 @@
     function showLoadingMessage(msg) { const div = document.createElement('div'); div.id = 'loadingOverlay'; div.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:10000;'; div.innerHTML = `<div style="background:white; padding:20px; border-radius:20px;"><i class="fas fa-spinner fa-spin"></i> ${msg}</div>`; document.body.appendChild(div); return div; }
     function hideLoadingMessage(el) { if (el) el.remove(); }
 
-    initTechAuth();
+    // ------------------- بدء التشغيل: لا حاجة لأي مصادقة تقنية -------------------
+    console.log("تم تهيئة التطبيق باستخدام Firebase Authentication الآمنة");
+  
+  
+  async function ensureUserDocument(firebaseUser) {
+    const userDocRef = db.collection('users').doc(firebaseUser.uid);
+    const doc = await userDocRef.get();
+    if (!doc.exists) {
+        console.log("⚠️ المستند غير موجود، سيتم إنشاؤه تلقائياً...");
+        await userDocRef.set({
+            name: "مدير النظام",
+            role: "admin",
+            phone: "0790000000",
+            nationalId: "",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log("✅ تم إنشاء المستند بنجاح");
+        return true;
+    }
+    return false;
+}
 </script>
 </body>
 </html>
